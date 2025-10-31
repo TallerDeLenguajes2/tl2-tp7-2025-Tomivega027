@@ -61,6 +61,5 @@ namespace TuProyecto.Controllers
             return Ok(eliminado);
         }
 
-
     }
 }

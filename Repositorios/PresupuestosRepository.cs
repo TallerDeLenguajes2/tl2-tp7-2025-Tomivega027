@@ -136,6 +136,27 @@ public class PresupuestosRepository
             cmdPresupuesto.ExecuteNonQuery();
         }
     }
+    public bool EliminarPresupuestos(int id)
+{
+    using (var connection = new SqliteConnection(cadenaconexion))
+    {
+        connection.Open();
+
+        // 1️⃣ Borrar detalles primero
+        var cmdDetalles = new SqliteCommand("DELETE FROM PresupuestosDetalles WHERE idPresupuesto = @id", connection);
+        cmdDetalles.Parameters.AddWithValue("@id", id);
+        cmdDetalles.ExecuteNonQuery();
+
+        // 2️⃣ Borrar el presupuesto
+        var cmdPresupuesto = new SqliteCommand("DELETE FROM Presupuestos WHERE idPresupuesto = @id", connection);
+        cmdPresupuesto.Parameters.AddWithValue("@id", id);
+        int filasAfectadas = cmdPresupuesto.ExecuteNonQuery();
+
+        // Si no se borró ningún presupuesto, devolvemos false
+        return filasAfectadas > 0;
+    }
+}
+
 
     public void AgregarProducto(int idPresupuesto, int idProducto, int cantidad)
     {
@@ -179,35 +200,45 @@ public class PresupuestosRepository
         }
     }
 
-public void AgregarProductoAlPresupuesto(PresupuestosDetalles detalle)
+public PresupuestosDetalles AgregarProductoAlPresupuesto(int idPresupuesto, PresupuestosDetalles detalle)
 {
     using (var connection = new SqliteConnection(cadenaconexion))
     {
         connection.Open();
 
-        // Verificar presupuesto
-        var cmdCheckPresu = new SqliteCommand("SELECT COUNT(*) FROM presupuestos WHERE idPresupuestos = @id", connection);
-        cmdCheckPresu.Parameters.AddWithValue("@id", detalle.producto.idProducto);
-        long existePresu = (long)cmdCheckPresu.ExecuteScalar();
-        if (existePresu == 0)
-            throw new Exception("El presupuesto no existe.");
+        // 1️⃣ Validar que exista el presupuesto
+        var checkPresupuesto = new SqliteCommand(
+            "SELECT COUNT(*) FROM presupuestos WHERE idPresupuestos = @idPresupuesto", connection);
+        checkPresupuesto.Parameters.AddWithValue("@idPresupuesto", idPresupuesto);
 
-        // Verificar producto
-        var cmdCheckProd = new SqliteCommand("SELECT COUNT(*) FROM productos WHERE idProducto = @id", connection);
-        cmdCheckProd.Parameters.AddWithValue("@id", detalle.producto.idProducto);
-        long existeProd = (long)cmdCheckProd.ExecuteScalar();
-        if (existeProd == 0)
-            throw new Exception("El producto no existe.");
+        long existePresupuesto = (long)checkPresupuesto.ExecuteScalar();
+        if (existePresupuesto == 0)
+            return null; // no existe el presupuesto
 
-        // Insertar detalle
-        var cmdInsert = new SqliteCommand(
-            "INSERT INTO presupuestosDetalle (idPresupuesto, idProducto, cantidad) VALUES (@idPresupuesto, @idProducto, @cantidad)", 
+        // 2️⃣ Validar que exista el producto
+        var checkProducto = new SqliteCommand(
+            "SELECT COUNT(*) FROM productos WHERE idProducto = @idProducto", connection);
+        checkProducto.Parameters.AddWithValue("@idProducto", detalle.producto.idProducto);
+
+        long existeProducto = (long)checkProducto.ExecuteScalar();
+        if (existeProducto == 0)
+            return null; // no existe el producto
+
+        // 3️⃣ Insertar el detalle
+        var command = new SqliteCommand(
+            "INSERT INTO presupuestosDetalle (idPresupuesto, idProducto, cantidad) VALUES (@idPresupuesto, @idProducto, @cantidad)",
             connection
         );
-        cmdInsert.Parameters.AddWithValue("@idPresupuesto", detalle.producto.idProducto);
-        cmdInsert.Parameters.AddWithValue("@idProducto", detalle.producto.idProducto);
-        cmdInsert.Parameters.AddWithValue("@cantidad", detalle.cantidad);
-        cmdInsert.ExecuteNonQuery();
+
+        command.Parameters.AddWithValue("@idPresupuesto", idPresupuesto);
+        command.Parameters.AddWithValue("@idProducto", detalle.producto.idProducto);
+        command.Parameters.AddWithValue("@cantidad", detalle.cantidad);
+
+        command.ExecuteNonQuery();
+
+        // 4️⃣ Devolver el detalle insertado (ya con idPresupuesto asignado)
+        detalle.producto.idProducto = detalle.producto.idProducto;
+        return detalle;
     }
 }
 
