@@ -1,0 +1,6 @@
+@tallertp_HostAddress = http://localhost:5128
+
+GET {{tallertp_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
